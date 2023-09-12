@@ -67,3 +67,6 @@ class Agent:
             self.ratio_hold = 0
             self.ratio_portfolio_value = 0
 
+        # 탐험의 기준이 되는 exporation_base 를 새로 정하는 함수. 매수 탐험을 선호하기 위해 50% 확률을 미리 부여
+        def reset_exploration(self):
+            self.exploration_base = 0.5 + np.random.rand() / 2
