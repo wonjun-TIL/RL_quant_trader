@@ -54,19 +54,19 @@ class Agent:
         self.ratio_portfolio_value = 0 # 포트폴리오 가치 비
 
         
-        # Agent 클래스의 속성 초기화
-        def reset(self):
-            self.balance = self.initial_balance
-            self.num_stocks = 0
-            self.portfolio_value = self.initial_balance
-            self.base_portfolio_value = self.initial_balance
-            self.num_buy = 0
-            self.num_sell = 0
-            self.num_hold = 0
-            self.immediate_reward = 0
-            self.ratio_hold = 0
-            self.ratio_portfolio_value = 0
+    # Agent 클래스의 속성 초기화
+    def reset(self):
+        self.balance = self.initial_balance
+        self.num_stocks = 0
+        self.portfolio_value = self.initial_balance
+        self.base_portfolio_value = self.initial_balance
+        self.num_buy = 0
+        self.num_sell = 0
+        self.num_hold = 0
+        self.immediate_reward = 0
+        self.ratio_hold = 0
+        self.ratio_portfolio_value = 0
 
-        # 탐험의 기준이 되는 exporation_base 를 새로 정하는 함수. 매수 탐험을 선호하기 위해 50% 확률을 미리 부여
-        def reset_exploration(self):
-            self.exploration_base = 0.5 + np.random.rand() / 2
+    # 탐험의 기준이 되는 exporation_base 를 새로 정하는 함수. 매수 탐험을 선호하기 위해 50% 확률을 미리 부여
+    def reset_exploration(self):
+        self.exploration_base = 0.5 + np.random.rand() / 2
