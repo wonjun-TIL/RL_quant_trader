@@ -70,3 +70,32 @@ class Agent:
     # 탐험의 기준이 되는 exporation_base 를 새로 정하는 함수. 매수 탐험을 선호하기 위해 50% 확률을 미리 부여
     def reset_exploration(self):
         self.exploration_base = 0.5 + np.random.rand() / 2
+    
+    # 에이전트의 초기 자본금을 설정
+    def set_balance(self, balance):
+        self.initial_balance = balance
+    
+    # 에이전트의 상태를 반환
+    def get_states(self):
+        """ self.ratio_hold 변수 설명
+        주식 보유 비율 = 보유 주식 수 / (포트폴리오 가치 / 현재 주가)
+        0 이면 주식을 하나도 보유하지 않은 것
+        0.5 이면 최대 가질 수 있는 주식 대비 절반의 주식을 보유 하고 있는 것
+        1 이면 최대로 주식을 보유하고 있는 것
+        주식 수가 너무 적으면 매수의 관점에서 투자에 임하고 주식 수가 너무 많으면 매도의 관점에서 투자에 임하게 된다. 
+        따라서 투자 행동 결정에 영향을 주기 위해 정책 신경망의 입력에 포함되어야 한다.
+        """
+        self.ratio_hold = self.num_stocks / int(self.portfolio_value / self.environment.get_price())
+
+        """ self.ration_portfolio_value 변수 설명
+        포트폴리오 가치 비율 = 포트폴리오 가치 / 기준 포트폴리오 가치
+        포트폴리오 가치 비율은 기준 포트폴리오 가치 대비 현재 포트폴리오 가치의 비율
+        기준 포트폴리오 가치는 직전에 목표 수익 또는 손익률을 달성했을 때의 포트폴리오 가치이다. 
+        이 값은 현재 수익이 발생했는지 손실이 발생했는지를 판단할 수 있음
+        포트폴리오 가치 비율이 0에 가까우면 손실이 큰 것이고 1보다 크면 수익이 발생했다는 뜻
+        수익률이 목표 수익률에 가까우면 매도의 관점에서 투자하고는 한다.
+        수익율이 투자행동에 영향을 줄 수 있기 때문에 이 값을 에이전트의 상태로 정하고 정책 신경망의 입력값으로 포함한다.
+        """
+        self.ratio_portfolio_value = self.portfolio_value / self.base_portfolio_value
+
+        return (self.ratio_hold, self.ratio_portfolio_value)
