@@ -150,3 +150,11 @@ class Agent:
                 return False
         return True
     
+    # 매수 매도 단위 결정 함수
+    def decide_trading_unit(self, confidence):
+        if np.isnan(confidence):    # 신뢰도가 없으면 최소 단위만 매수
+            return self.min_trading_unit
+        # 높은 신뢰도 매수를 결정했으면 그에 맞게 더 많은 주식을 매수하고 높은 신뢰도 매도를 결정했으면 더 많은 보유 주식을 매도하는 것.
+        added_traiding = max(min(int(confidence * (self.max_trading_unit - self.min_trading_unit)), self.max_trading_unit - self.min_trading_unit), 0)  # 신뢰도에 따라 매수 매도 단위 결정
+        return self.min_trading_unit + added_traiding
+    
