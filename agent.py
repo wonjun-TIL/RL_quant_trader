@@ -135,5 +135,18 @@ class Agent:
         elif pred_value is not None:    # 정책 신경망의 출력값이 없으면, 가치 신경망의 출력값을 사용하여 탐험 결정
             confidence = utils.sigmoid(pred[action])
 
-        return action, confidence, exploration
+        return action, confidence, exploration  # 행동 (매수, 매도), 신뢰도, 탐험 여부 반환
             
+    
+    # 유효성 검사 함수
+    def validation_action(self, action):
+        if action == Agent.ACTION_BUY:
+            # 적어도 1주를 살 수 있는지 확인
+            if self.balance < self.environment.get_price() * (1 + self.TRADING_CHARGE) * self.min_trading_unit:
+                return False
+        elif action == Agent.ACTION_SELL:
+            # 주식 잔고가 있는지 확인
+            if self.num_stocks <= 0:
+                return False
+        return True
+    
