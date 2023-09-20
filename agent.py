@@ -99,3 +99,41 @@ class Agent:
         self.ratio_portfolio_value = self.portfolio_value / self.base_portfolio_value
 
         return (self.ratio_hold, self.ratio_portfolio_value)
+    
+
+    # 행동을 결정하는 함수, 행동은 [매도, 매수]  두가지
+    def decide_action(self, pred_value, pred_policy, epsilon):
+        confidence = 0.
+
+        pred = pred_policy
+        if pred is None:
+            pred = pred_value
+        
+        if pred is None:
+            # 예측 값이 없을 경우 탐험
+            epsilon = 1
+        else:
+            # 값이 모두 같은 경우 탐험
+            maxpred = np.max(pred)
+            if (pred == maxpred).all():
+                epsilon = 1
+
+        # 탐험 결정
+        if np.random.rand() < epsilon:  # 0~1 사이의 랜덤값을 생성하고, 이 값이 엡실론보다 작으면 무작위로 행동을 결정
+            exploration = True
+            if np.random.rand() < self.exploration_base:    # exploration_base 는 탐험의 기조로 작용, 에포크마다 새로 결정, 1에 가까울 수록 탐험할 때 매수를 더 많이 선택
+                action = self.ACTION_BUY
+            else:                                           # exploration_base 가 0에 가까울 수록 탐험할 때 매도를 더 많이 선택
+                action = np.random.randint(self.NUM_ACTIONS - 1) + 1    # NUM_ACTIONS: 2 (매수, 매도 2가지)
+        else:
+            exploration = False
+            action = np.argmax(pred)
+        
+        confidence = 0.5
+        if pred_policy is not None:     # 정책 신경망의 출력값이 있으면, 정책 신경망의 출력값을 사용하여 탐험 결정
+            confidence = pred[action]
+        elif pred_value is not None:    # 정책 신경망의 출력값이 없으면, 가치 신경망의 출력값을 사용하여 탐험 결정
+            confidence = utils.sigmoid(pred[action])
+
+        return action, confidence, exploration
+            
