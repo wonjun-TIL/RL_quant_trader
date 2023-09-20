@@ -158,3 +158,70 @@ class Agent:
         added_traiding = max(min(int(confidence * (self.max_trading_unit - self.min_trading_unit)), self.max_trading_unit - self.min_trading_unit), 0)  # 신뢰도에 따라 매수 매도 단위 결정
         return self.min_trading_unit + added_traiding
     
+    # 투자 행동 수행 함수
+    # act 함수는 에이저늩가 결정한 행동을 수행
+    def act(self, action, confidence):  # action 은 탐험 또는 정책 신경망을 통해 결정한 행동, 매수와 매도 를 의미하는 0 또는 1의 값을 가짐
+                                        # confidence 는 정책 신경망을 통해 결정한 경우 결정한 행동에 대한 소프트맥스 확률 값
+        if not self.validation_action(action):  # 유효성 검사
+            action = Agent.ACTION_HOLD  # 유효하지 않은 행동이면 홀딩
+
+        # 환경에서 현재 가격 얻기
+        curr_price = self.environment.get_price()   # 현재 주가를 가져옴
+
+        # 즉시 보상 초기화
+        self.immediate_reward = 0   # 즉시 보상은 에이전트가 행동할 때마다 결정되기 때문에 초기화
+
+        # 매수
+        if action == Agent.ACTION_BUY:
+            # 매수할 단위를 판단 (살 주식 수)
+            trading_unit = self.decide_trading_unit(confidence)  # 매수할 단위를 판단하는 함수
+            balance = (self.balance - curr_price * (1 + self.TRADING_CHARGE) * trading_unit) # 매수 후의 잔금
+            # 보유 현금이 모자랄 경우 보유 현금으로 가능한 만큼 최대한 매수
+            if balance < 0: 
+                trading_unit = max(min(int(self.balance / (curr_price * (1 + self.TRADING_CHARGE))), self.max_trading_unit), self.min_trading_unit) # 결정한 매수 단위가 최대 단일 거래 단위를 넘어가면 최대 단일 거래 단위로 제한하고 최소 거래 단위보다 최소한 1주를 매수
+            # 수수료를 적용하여 총 매수 금액 산정
+            invest_amount = curr_price * (1 + self.TRADING_CHARGE) * trading_unit
+            if invest_amount > 0:
+                self.balance -= invest_amount # 보유 현금을 갱신
+                self.num_stocks += trading_unit # 보유 주식 수를 갱신
+                self.num_buy += 1 # 매수 횟수 증가 # 통계 정보
+
+        # 매도
+        elif action == Agent.ACTION_SELL:
+            # 매도할 단위를 판단
+            trading_unit = self.decide_trading_unit(confidence)
+            # 보유 주식이 모자랄 경우 가능한 만큼 최대한 매도
+            trading_unit = min(trading_unit, self.num_stocks)
+            # 매도
+            invest_amount = curr_price * (1 - (self.TRADING_TAX + self.TRADING_CHARGE)) * trading_unit
+            if invest_amount > 0:
+                self.num_stocks -= trading_unit # 보유 주식 수를 갱신
+                self.balance += invest_amount # 보유 현금을 갱신
+                self.num_sell += 1 # 매도 횟수 증가 # 통계 정보
+
+        # 홀딩
+        elif action == Agent.ACTION_HOLD:
+            self.num_hold += 1 # 홀딩 횟수 증가 # 통계 정보
+        
+
+        # 포트폴리오 가치 갱신 # 포트폴리오 가치는 잔고, 주식 보유 수, 현재 주식 가격에 의해 결정됩니다.
+        self.portfolio_value = self.balance + curr_price * self.num_stocks
+        self.profitloss = (self.portfolio_value - self.initial_balance) / self.initial_balance
+
+        # 즉시 보상 - 수익률    # 즉시보상은 기준 포트폴리오 가치 대비 현재 포트폴리오 가치의 비율
+        self.immediate_reward = self.profitloss
+
+        # 지연 보상 - 익절, 손절 기준
+        delayed_reward = 0
+        self.base_profitloss = (self.portfolio_value - self.base_portfolio_value) / self.base_portfolio_value
+        # threshold를 초과하는 경우 즉시 보상값으로 정하고 그 외의 경우 0으로 설정
+        # 즉, 임계치를 초과하는 수익이 났으면 긍정, 임계치를 초과하는 손실이 났다면 부정적인 보상을 받게 됨.
+        if self.base_profitloss > self.delayed_reward_threshold or self.base_profitloss < -self.delayed_reward_threshold:
+            # 목표 수익률 달성하여 기준 포트폴리오 가치 갱신율
+            # 또는 손실 기준치를 초과하여 기준 포트폴리오 가치 갱신
+            self.base_portfolio_value = self.portfolio_value
+            delayed_reward = self.immediate_reward
+        else:
+            delayed_reward = 0
+        
+        return self.immediate_reward, delayed_reward
