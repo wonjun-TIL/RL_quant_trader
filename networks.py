@@ -82,3 +82,54 @@ class Network:
                 return CNN.get_network_head(Input((1, num_steps, input_dim)))
             
 
+# DNN 신경망 클래스
+class DNN(Network):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        with graph.as_default():
+            if sess is not None:
+                set_session(sess)
+            inp = None
+            output = None
+            if self.shared_network is None:
+                inp = Input((self.input_dim, ))
+                output = self.get_network_head(inp).output
+            else:
+                inp = self.shared_network.input
+                output = self.shared_network.output
+            out = Dense(self.output_dim, activation=self.activation, kernel_initializer='random_normal')(output)
+            self.model = Model(inp, out)
+            self.model.compile(optimizer=SGD(lr=self.lr), loss=self.loss)
+
+    # dnn 신경망 구조를 설정
+    @staticmethod
+    def get_network_head(inp):
+        # Dense : full connected layer 
+        # 각각 256, 128, 64, 32 개의 뉴런이 있는 4층의 Layer
+        # activation : 활성화 함수
+        # kernel_initializer = 가중치(weight) 행렬을 초기화 하는 방법 지정, 여기서는 무작위
+        # batchNormalization : 입력 데이터의 평균과 분산을 정규화하고 스케일(scale) 및 쉬프트(shift)를 수행
+        # dropout: 뉴런을 임의로 비활성화하여 과적합을 방지, 여기서는 10%의 뉴런을 비활성화하는 드롭아웃이 적용됨
+        # Model: 입력부터 출력까지 연결된 레이어를 정의하는 함수.
+        output = Dense(256, activation='sigmoid', kernel_initializer='random_normal')(inp)
+        output = BatchNormalization()(output)
+        output = Dropout(0.1)(output)
+        output = Dense(128, activation='sigmoid', kernel_initializer='random_normal')(output)
+        output = BatchNormalization()(output)
+        output = Dropout(0.1)(output)
+        output = Dense(64, activation='sigmoid', kernel_initializer='random_normal')(output)
+        output = BatchNormalization()(output)
+        output = Dropout(0.1)(output)
+        output = Dense(32, activation='sigmoid', kernel_initializer='random_normal')(output)
+        output = BatchNormalization()(output)
+        output = Dropout(0.1)(output)
+        return Model(inp, output)
+    
+    # 입력을 2차원으로 만들면서 진행.
+    def train_on_batch(self, x, y):
+        x = np.array(x).reshape((-1, self.input_dim))
+        return super().train_on_batch(x, y)
+
+    def predict(self, sample):
+        sample = np.array(sample).reshape((1, self.input_dim))
+        return super().predict(sample)
