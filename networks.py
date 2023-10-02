@@ -38,4 +38,47 @@ class Network:
         self.loss = loss # 손실 함수
         self.model = None # 신경망 모델
 
+    # 샘픙레 대한 행동의 가치 또는 확률 예측
+    def predict(self, sample):
+        with self.lock:
+            with graph.as_default():
+                if sess is not None:
+                    set_session(sess)
+                return self.model.predict(sample).flatten() # 신경망의 출력값을 반환
     
+    # 학습 데이터와 레이블 x, y를 입력으로 받아서 모델을 학습시킴.
+    def train_on_batch(self, x, y):
+        loss = 0
+        with self.lock: # lock을 사용하여 스레드 간의 충돌 방지
+            with graph.as_default(): # 그래프를 사용하여 스레드 간의 충돌 방지
+                if sess is not None: # 세션을 사용하여 스레드 간의 충돌 방지
+                    set_session(sess) 
+                loss = self.model.train_on_batch(x, y)
+            return loss
+        
+    # 모델을 파일로 저장하는 함수
+    def save_model(self, model_path):
+        if model_path is not None and self.model is not None:
+            self.model.save_weights(model_path, overwrite=True) # 모델의 가중치를 파일로 저장
+    
+    # 파일로부터 모델을 읽어오는 함수
+    def load_model(self, model_path):
+        if model_path is not None:
+            self.model.load_weights(model_path)
+
+    # DNN, LSTM, CNN 신경망의 공유 신경망을 생성하는 클래스 함수
+    # Network 클래스의 하위 클래스들은 각각 get_network_head 함수를 가지고 있음.
+    # 신경망 유형에 따라 DNN, LSTMNetwrok, CNN 클래스의 클래스함수인 get_network_head를 호출하여 공유 신경망을 생성
+    @classmethod
+    def get_shared_network(cls, net='dnn', num_steps=1, input_dim=0):
+        with graph.as_default():
+            if sess is not None:
+                set_session(sess)
+            if net == 'dnn':
+                return DNN.get_network_head(Input((input_dim, )))
+            elif net == 'lstm':
+                return LSTMNetwork.get_network_head(Input((num_steps, input_dim)))
+            elif net == 'cnn':
+                return CNN.get_network_head(Input((1, num_steps, input_dim)))
+            
+
