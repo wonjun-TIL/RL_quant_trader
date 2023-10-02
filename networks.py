@@ -133,3 +133,44 @@ class DNN(Network):
     def predict(self, sample):
         sample = np.array(sample).reshape((1, self.input_dim))
         return super().predict(sample)
+    
+# LSTM class
+class LSTMNetwork(Network):
+    def __init__(self, *args, num_steps=1, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.num_steps = num_steps # 몇개의 샘플을 묶어서 LSTM 신경망의 입력으로 사용할지 결정
+        inp = None
+        output = None
+        if self.shared_network is None:
+            inp = Input((self.num_steps, self.input_dim))
+            output = self.get_network_head(inp).output
+        else:
+            inp = self.shared_network.input
+            output = self.shared_network.output
+        output = Dense(
+            self.output_dim, activation=self.activation, 
+            kernel_initializer='random_normal')(output)
+        self.model = Model(inp, output)
+        self.model.compile(
+            optimizer=SGD(learning_rate=self.lr), loss=self.loss)
+
+    @staticmethod
+    def get_network_head(inp):
+        # return_sequence 인자를 주면 해당 레이어의 출력의 길이를 num_steps만큼 유지
+        output = LSTM(256, dropout=0.1, return_sequences=True, kernel_initializer='random_normal')(inp)
+        output = BatchNormalization()(output)
+        output = LSTM(128, dropout=0.1, return_sequences=True, kernel_initializer='random_normal')(output)
+        output = BatchNormalization()(output)
+        output = LSTM(64, dropout=0.1, return_sequences=True, kernel_initializer='random_normal')(output)
+        output = BatchNormalization()(output)
+        output = LSTM(32, dropout=0.1, kernel_initializer='random_normal')(output)
+        output = BatchNormalization()(output)
+        return Model(inp, output)
+
+    def train_on_batch(self, x, y):
+        x = np.array(x).reshape((-1, self.num_steps, self.input_dim))
+        return super().train_on_batch(x, y)
+
+    def predict(self, sample):
+        sample = np.array(sample).reshape((1, self.num_steps, self.input_dim))
+        return super().predict(sample)
