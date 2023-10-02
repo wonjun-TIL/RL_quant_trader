@@ -174,3 +174,58 @@ class LSTMNetwork(Network):
     def predict(self, sample):
         sample = np.array(sample).reshape((1, self.num_steps, self.input_dim))
         return super().predict(sample)
+    
+class CNN(Network):
+    def __init__(self, *args, num_steps=1, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.num_steps = num_steps  # 2차원의 크기 조절
+        inp = None
+        output = None
+        if self.shared_network is None:
+            inp = Input((self.num_steps, self.input_dim, 1))
+            output = self.get_network_head(inp).output
+        else:
+            inp = self.shared_network.input
+            output = self.shared_network.output
+        output = Dense(
+            self.output_dim, activation=self.activation,
+            kernel_initializer='random_normal')(output)
+        self.model = Model(inp, output)
+        self.model.compile(
+            optimizer=SGD(learning_rate=self.lr), loss=self.loss)
+
+    @staticmethod
+    def get_network_head(inp):
+        # padding : same을 줘서 입력과 출력의 크기가 같게 설정
+        output = Conv2D(256, kernel_size=(1, 5), padding='same', activation='sigmoid', kernel_initializer='random_normal')(inp)
+        output = BatchNormalization()(output)
+        output = MaxPooling2D(pool_size=(1, 2))(output)
+        output = Dropout(0.1)(output)
+
+        output = Conv2D(128, kernel_size=(1, 5), padding='same', activation='sigmoid', kernel_initializer='random_normal')(output)
+        output = BatchNormalization()(output)
+        output = MaxPooling2D(pool_size=(1, 2))(output)
+        output = Dropout(0.1)(output)
+
+        output = Conv2D(64, kernel_size=(1, 5), padding='same', activation='sigmoid', kernel_initializer='random_normal')(output)
+        output = BatchNormalization()(output)
+        output = MaxPooling2D(pool_size=(1, 2))(output)
+        output = Dropout(0.1)(output)
+
+        output = Conv2D(32, kernel_size=(1, 5), padding='same', activation='sigmoid', kernel_initializer='random_normal')(output)
+        output = BatchNormalization()(output)
+        output = MaxPooling2D(pool_size=(1, 2))(output)
+        output = Dropout(0.1)(output)
+
+        output = Flatten()(output)
+        return Model(inp, output)
+
+    def train_on_batch(self, x, y):
+        # 2차원 합성곱 신경망이므로 (배치 크기, 스텝 수, 자질 벡터 차원, 1)의 모양으로 학습데이터를 가짐.
+        # 보통 마지막차원으로는 RGB를 의미를 지니는 3이들어가지만, 주식데이터는 채널이랄게 없으니 1로 호출.
+        x = np.array(x).reshape((-1, self.num_steps, self.input_dim, 1))
+        return super().train_on_batch(x, y)
+
+    def predict(self, sample):
+        sample = np.array(sample).reshape((-1, self.num_steps, self.input_dim, 1))
+        return super().predict(sample)
