@@ -178,3 +178,45 @@ class ReinforcementLearner:
         self.exploration_cnt = 0 # 무작위 투자를 수행한 횟수를 저장
         self.batch_size = 0 # 미니배치 크기
         self.learning_cnt = 0 # 한 에포크동안 수행한 미니배치 수
+
+    # 학습 데이터를 구성하는 샘플 하나를 생성.
+    def build_sample(self):
+        self.environment.observe()
+        if len(self.training_data) > self.training_data_idx + 1:
+            self.training_data_idx += 1
+            self.sample = self.training_data.iloc[self.training_data_idx].tolist()
+            self.sample.extend(self.agent.get_states())
+            return self.sample
+        return None
+    
+
+    # 배치 학습 데이터 생성
+    @abc.abstractmethod
+    def get_batch(self, batch_size, delayed_reward, discount_factor):
+        pass
+
+    # 신경망 학습
+    def update_networks(self, batch_size, delayed_reward, discount_factor):
+        # 배치 학습 데이터 생성
+        x, y_value, y_policy = self.get_batch(batch_size, delayed_reward, discount_factor)
+        
+        if len(x) > 0:
+            loss = 0
+            if y_value is not None:
+                # 가치 신경망 갱신
+                loss += self.value_network.train_on_batch(x, y_value)
+            if y_policy is not None:
+                # 정책 신경망 갱신
+                loss += self.policy_network.train_on_batch(x, y_policy)
+            return loss
+        return None
+
+    def fit(self, delayed_reward, discount_factor):
+        # 배치 학습 데이터 생성 및 신경망 갱신
+        if self.batch_size > 0:
+            _loss = self.update_networks(self.batch_size, delayed_reward, discount_factor)
+            if _loss is not None:
+                self.loss += abs(_loss)
+                self.learning_cnt += 1
+                self.memory_learning_idx.append(self.training_data_idx)
+            self.batch_size = 0
