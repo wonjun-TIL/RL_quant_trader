@@ -402,8 +402,15 @@ class ReinforcementLearner:
         with self.lock:
             logging.info("[{code}] Elapsed Time:{elapsed_time:.4f} "
                          "Max PV:{max_pv:,.0f} #Win:{cnt_win}".format(
-                             code=self.stock_code,
-                             elapsed_time=elapsed_time,
-                             max_pv=max_portfolio_value,
-                             cnt_win=epoch_win_cnt
+                             code=self.stock_code,  # 주식 종목 코드
+                             elapsed_time=elapsed_time, # 학습에 소요된 시간
+                             max_pv=max_portfolio_value, # 학습 동안 달성한 최대 포트폴리오 가치
+                             cnt_win=epoch_win_cnt # 포트폴리오 가치가 자본금보다 높았던 에포크 수
                          ))
+    
+    # 신경망 모델 저장 함수
+    def save_models(self):
+        if self.value_network is not None and self.value_network_path is not None:
+            self.value_network.save_model(self.value_network_path)
+        if self.policy_network is not None and self.policy_network_path is not None:
+            self.policy_network.save_model(self.policy_network_path)
