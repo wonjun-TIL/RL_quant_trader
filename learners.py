@@ -84,3 +84,36 @@ class ReinforcementLearner:
         self.learning_cnt = 0 # 학습 횟수
         # 로그 등 출력 경로
         self.output_path = output_path
+
+    # 가치신경망, 손익률을 회귀분석하는 모델.
+    def init_value_network(self, shared_network=None, 
+                           activation='linear', 
+                           loss='mse'):
+        if self.net == 'dnn':
+            self.value_network = DNN(
+                input_dim=self.num_features, 
+                output_dim=self.agent.NUM_ACTIONS, 
+                lr=self.lr, 
+                shared_network=shared_network,
+                activation=activation, 
+                loss=loss)
+        elif self.net == 'lstm':
+            self.value_network = LSTMNetwork(
+                input_dim=self.num_features, 
+                output_dim=self.agent.NUM_ACTIONS, 
+                lr=self.lr, 
+                num_steps=self.num_steps, 
+                shared_network=shared_network,
+                activation=activation, 
+                loss=loss)
+        elif self.net == 'cnn':
+            self.value_network = CNN(
+                input_dim=self.num_features, 
+                output_dim=self.agent.NUM_ACTIONS, 
+                lr=self.lr, 
+                num_steps=self.num_steps, 
+                shared_network=shared_network,
+                activation=activation, 
+                loss=loss)
+        if self.reuse_models and os.path.exists(self.value_network_path):
+            self.value_network.load_model(model_path=self.value_network_path)
