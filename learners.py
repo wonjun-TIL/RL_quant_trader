@@ -151,3 +151,30 @@ class ReinforcementLearner:
                 loss=loss)
         if self.reuse_models and os.path.exists(self.policy_network_path):
             self.policy_network.load_model(model_path=self.policy_network_path)
+    
+    # 에포크 초기화 함수 
+    def reset(self):
+        self.sample = None
+        self.training_data_idx = -1 # 학습 데이터를 처음부터 다시 읽기 위해
+        # 환경 초기화
+        self.environment.reset()
+        # 에이전트 초기화
+        self.agent.reset()
+        # 가시화 초기화
+        # self.visualizer.clear([0, len(self.chart_data)])
+        # 메모리 초기화
+        self.memory_sample = []
+        self.memory_action = []
+        self.memory_reward = []
+        self.memory_value = []
+        self.memory_policy = []
+        self.memory_pv = []
+        self.memory_num_stocks = []
+        self.memory_exp_idx = []
+        self.memory_learning_idx = []
+        # 에포크 관련 정보 초기화
+        self.loss = 0.
+        self.itr_cnt = 0 # 수행한 에포크 수
+        self.exploration_cnt = 0 # 무작위 투자를 수행한 횟수를 저장
+        self.batch_size = 0 # 미니배치 크기
+        self.learning_cnt = 0 # 한 에포크동안 수행한 미니배치 수
