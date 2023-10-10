@@ -48,3 +48,21 @@ class ReinforcementLearner:
                            max_trading_unit=max_trading_unit,
                            delayed_reward_threshold=delayed_reward_threshold)
         
+        # 학습 데이터
+        self.training_data = training_data
+        self.sample = None
+        self.training_data_idx = -1
+        # 벡터 크기 = 학습 데이터 벡터 크기 + 에이전트 상태 크기 (학습데이터 특징: 26개, agent: 2개 )
+        self.num_features = self.agent.STATE_DIM
+        if self.training_data is not None:
+            self.num_features += self.training_data.shape[1]
+        # 신경망 설정
+        self.net = net
+        self.num_steps = num_steps
+        self.lr = lr
+        self.value_network = value_network
+        self.policy_network = policy_network
+        self.reuse_models = reuse_models
+        # 가시화 모듈
+        # self.visualizer = Visualizer()
+        
