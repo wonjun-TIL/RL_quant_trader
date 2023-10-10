@@ -414,3 +414,214 @@ class ReinforcementLearner:
             self.value_network.save_model(self.value_network_path)
         if self.policy_network is not None and self.policy_network_path is not None:
             self.policy_network.save_model(self.policy_network_path)
+
+
+
+############################################################################################################
+    """
+    여기서부터 코드 다시짜야함.
+    """
+    def predict(self, balance=10000000):
+        # 에이전트 초기 자본금 설정
+        self.agent.set_balance(balance)
+        
+        # 에이전트 초기화
+        self.agent.reset()
+
+        # step 샘플을 만들기 위한 큐
+        q_sample = collections.deque(maxlen=self.num_steps)
+        
+        result = []
+        while True:
+            # 샘플 생성
+            next_sample = self.build_sample()
+            if next_sample is None:
+                break
+
+            # num_steps만큼 샘플 저장
+            q_sample.append(next_sample)
+            if len(q_sample) < self.num_steps:
+                continue
+
+            # 가치, 정책 신경망 예측
+            pred_value = None
+            pred_policy = None
+            if self.value_network is not None:
+                pred_value = self.value_network.predict(list(q_sample))
+            if self.policy_network is not None:
+                pred_policy = self.policy_network.predict(list(q_sample))
+            
+            # 신경망에 의한 행동 결정
+            action, confidence, _ = self.agent.decide_action(pred_value, pred_policy, 0)
+            
+            result.append((int(action), float(confidence)))
+
+        return result
+    
+
+
+class DQNLearner(ReinforcementLearner):
+    def __init__(self, *args, value_network_path=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.value_network_path = value_network_path
+        self.init_value_network()
+
+    def get_batch(self):
+        memory = zip(
+            reversed(self.memory_sample),
+            reversed(self.memory_action),
+            reversed(self.memory_value),
+            reversed(self.memory_reward),
+        )
+        x = np.zeros((len(self.memory_sample), self.num_steps, self.num_features))
+        y_value = np.zeros((len(self.memory_sample), self.agent.NUM_ACTIONS))
+        value_max_next = 0
+        for i, (sample, action, value, reward) in enumerate(memory):
+            x[i] = sample
+            r = self.memory_reward[-1] - reward
+            y_value[i] = value
+            # Q(s,a) := Q(s,a) + alpha * (R + gamma * max(Q(s',a')))
+            y_value[i, action] = r + self.discount_factor * value_max_next
+            value_max_next = value.max()
+        return x, y_value, None
+    
+
+class PolicyGradientLearner(ReinforcementLearner):
+    def __init__(self, *args, policy_network_path=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.policy_network_path = policy_network_path
+        self.init_policy_network()
+
+    def get_batch(self):
+        memory = zip(
+            reversed(self.memory_sample),
+            reversed(self.memory_action),
+            reversed(self.memory_policy),
+            reversed(self.memory_reward),
+        )
+        x = np.zeros((len(self.memory_sample), self.num_steps, self.num_features))
+        y_policy = np.zeros((len(self.memory_sample), self.agent.NUM_ACTIONS))
+        for i, (sample, action, policy, reward) in enumerate(memory):
+            x[i] = sample
+            r = self.memory_reward[-1] - reward
+            y_policy[i, action] = 1 if r > 0 else 0
+        return x, None, y_policy
+
+
+class ActorCriticLearner(ReinforcementLearner):
+    def __init__(self, *args, shared_network=None, 
+        value_network_path=None, policy_network_path=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if shared_network is None:
+            self.shared_network = Network.get_shared_network(
+                net=self.net, num_steps=self.num_steps, 
+                input_dim=self.num_features)
+        else:
+            self.shared_network = shared_network
+        self.value_network_path = value_network_path
+        self.policy_network_path = policy_network_path
+        if self.value_network is None:
+            self.init_value_network(shared_network=shared_network)
+        if self.policy_network is None:
+            self.init_policy_network(shared_network=shared_network)
+
+    def get_batch(self):
+        memory = zip(
+            reversed(self.memory_sample),
+            reversed(self.memory_action),
+            reversed(self.memory_value),
+            reversed(self.memory_policy),
+            reversed(self.memory_reward),
+        )
+        x = np.zeros((len(self.memory_sample), self.num_steps, self.num_features))
+        y_value = np.zeros((len(self.memory_sample), self.agent.NUM_ACTIONS))
+        y_policy = np.zeros((len(self.memory_sample), self.agent.NUM_ACTIONS))
+        value_max_next = 0
+        for i, (sample, action, value, policy, reward) in enumerate(memory):
+            x[i] = sample
+            r = self.memory_reward[-1] - reward
+            y_value[i, action] = r + self.discount_factor * value_max_next
+            y_policy[i, action] = 1 if r > 0 else 0
+            value_max_next = value.max()
+        return x, y_value, y_policy
+
+
+class A2CLearner(ActorCriticLearner):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+    def get_batch(self):
+        memory = zip(
+            reversed(self.memory_sample),
+            reversed(self.memory_action),
+            reversed(self.memory_value),
+            reversed(self.memory_policy),
+            reversed(self.memory_reward),
+        )
+        x = np.zeros((len(self.memory_sample), self.num_steps, self.num_features))
+        y_value = np.zeros((len(self.memory_sample), self.agent.NUM_ACTIONS))
+        y_policy = np.zeros((len(self.memory_sample), self.agent.NUM_ACTIONS))
+        value_max_next = 0
+        for i, (sample, action, value, policy, reward) in enumerate(memory):
+            x[i] = sample
+            r = self.memory_reward[-1] - reward
+            y_value[i, action] = r + self.discount_factor * value_max_next
+            advantage = y_value[i, action] - y_value[i].mean()
+            y_policy[i, action] = 1 if advantage > 0 else 0
+            value_max_next = value.max()
+        return x, y_value, y_policy
+
+
+class A3CLearner(ReinforcementLearner):
+    def __init__(self, *args, list_stock_code=None, 
+        list_chart_data=None, list_training_data=None,
+        list_min_trading_unit=None, list_max_trading_unit=None, 
+        value_network_path=None, policy_network_path=None,
+        **kwargs):
+        assert len(list_training_data) > 0
+        super().__init__(*args, **kwargs)
+        self.num_features += list_training_data[0].shape[1]
+
+        # 공유 신경망 생성
+        self.shared_network = Network.get_shared_network(
+            net=self.net, num_steps=self.num_steps, 
+            input_dim=self.num_features)
+        self.value_network_path = value_network_path
+        self.policy_network_path = policy_network_path
+        if self.value_network is None:
+            self.init_value_network(shared_network=self.shared_network)
+        if self.policy_network is None:
+            self.init_policy_network(shared_network=self.shared_network)
+
+        # A2CLearner 생성
+        self.learners = []
+        for (stock_code, chart_data, training_data, 
+            min_trading_unit, max_trading_unit) in zip(
+                list_stock_code, list_chart_data, list_training_data,
+                list_min_trading_unit, list_max_trading_unit
+            ):
+            learner = A2CLearner(*args, 
+                stock_code=stock_code, chart_data=chart_data, 
+                training_data=training_data,
+                min_trading_unit=min_trading_unit, 
+                max_trading_unit=max_trading_unit, 
+                shared_network=self.shared_network,
+                value_network=self.value_network,
+                policy_network=self.policy_network, **kwargs)
+            self.learners.append(learner)
+
+    def run(self, learning=True):
+        threads = []
+        for learner in self.learners:
+            threads.append(threading.Thread(
+                target=learner.run, daemon=True, kwargs={
+                'num_epoches': self.num_epoches, 'balance': self.agent.balance,
+                'discount_factor': self.discount_factor, 
+                'start_epsilon': self.start_epsilon,
+                'learning': learning
+            }))
+        for thread in threads:
+            thread.start()
+            time.sleep(1)
+        for thread in threads:
+            thread.join()
