@@ -117,3 +117,37 @@ class ReinforcementLearner:
                 loss=loss)
         if self.reuse_models and os.path.exists(self.value_network_path):
             self.value_network.load_model(model_path=self.value_network_path)
+
+    # 정책 신경망, PV를 높이기 위해 취하기 좋은 행동에 대한 분류 모델
+    # sigmoid를 사용하여 확률로 사용할 수 있게함
+    # 경우에 따라 손실함수를 mse가 아닌 cross entropy를 사용을 생각해 볼 수 있음
+    def init_policy_network(self, shared_network=None, activation='sigmoid', 
+                            loss='mse'):
+        if self.net == 'dnn':
+            self.policy_network = DNN(
+                input_dim=self.num_features, 
+                output_dim=self.agent.NUM_ACTIONS, 
+                lr=self.lr, 
+                shared_network=shared_network,
+                activation=activation, 
+                loss=loss)
+        elif self.net == 'lstm':
+            self.policy_network = LSTMNetwork(
+                input_dim=self.num_features, 
+                output_dim=self.agent.NUM_ACTIONS, 
+                lr=self.lr, 
+                num_steps=self.num_steps, 
+                shared_network=shared_network,
+                activation=activation, 
+                loss=loss)
+        elif self.net == 'cnn':
+            self.policy_network = CNN(
+                input_dim=self.num_features, 
+                output_dim=self.agent.NUM_ACTIONS, 
+                lr=self.lr, 
+                num_steps=self.num_steps, 
+                shared_network=shared_network,
+                activation=activation, 
+                loss=loss)
+        if self.reuse_models and os.path.exists(self.policy_network_path):
+            self.policy_network.load_model(model_path=self.policy_network_path)
