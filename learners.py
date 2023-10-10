@@ -65,4 +65,22 @@ class ReinforcementLearner:
         self.reuse_models = reuse_models
         # 가시화 모듈
         # self.visualizer = Visualizer()
-        
+
+        # 메모리, 기반으로 신경망 학습을 진행
+        self.memory_sample = [] # 학습 데이터 샘플
+        self.memory_action = [] # 수행한 행동
+        self.memory_reward = [] # 획등한 보상
+        self.memory_value = [] # 행동의 예측 가치
+        self.memory_policy = [] # 행동의 예측 확률(정책)
+        self.memory_pv = [] # 포트폴리오 가치,
+        self.memory_num_stocks = [] # 보유 주식 수
+        self.memory_exp_idx = [] # 탐험 위치
+        self.memory_learning_idx = [] # 학습 위치
+        # 에포크 관련 정보
+        self.loss = 0.  # 학습에서 발생한 손실
+        self.itr_cnt = 0 # 수익 발생 횟수
+        self.exploration_cnt = 0 # 탐험 횟수 
+        self.batch_size = 0 
+        self.learning_cnt = 0 # 학습 횟수
+        # 로그 등 출력 경로
+        self.output_path = output_path
